@@ -171,10 +171,12 @@ namespace DBMS {
 			if (inner == null)
 				inner = "";
 			else if (inner.Length > 0)
-				inner += " ";
+				inner = inner.Replace("'" + NULL + "'", "NULL") + " ";
 
 			if (complement == null)
 				complement = "";
+			else
+				complement = complement.Replace("'" + NULL + "'", "NULL");
 
 			string columnsJoint = string.Join(", ", columns);
 			condition = ClearCondition(condition);
@@ -431,7 +433,7 @@ namespace DBMS {
 			CurrentDML = DML.SELECT;
 			if (!ValidateQuery(query))
 				return null;
-			
+
 			bool close = false;
 			List<string>[] result = new List<string>[columns.Length];
 			for (int i = 0; i < result.Length; i++)
