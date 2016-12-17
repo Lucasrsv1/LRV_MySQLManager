@@ -482,10 +482,6 @@ namespace DBMS {
 			return result;
 		}
 
-		public int Count () {
-			return 0;
-		}
-
 		public int Update (string tableName, string[] columns, string[] values, string condition = "") {
 			AffectedRows = -1;
 
