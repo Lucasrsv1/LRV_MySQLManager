@@ -1,7 +1,7 @@
 ﻿/// CREATED BY LRV;
 
 /// This software is for test the MySQLManager library;
-/// To use it, please create the next users in your DBMS:
+/// To use it, please create the next users in your DBMS or change the connection configuration below:
 /// 'Manager'@'%' with password "12345678" and all DML privilegies;
 /// 'Manager'@'localhost' with password "12345678" and all DML privilegies;
 ///
