@@ -20,9 +20,8 @@ using System.Collections.Generic;
 namespace MySQLManager_Tests {
 	class Program {
 		const string NULL = MySQLManager.NULL;
-		static MySQLManager dbms;
 
-		static void ShowNonQueryResult () {
+		static void ShowNonQueryResult (MySQLManager dbms) {
 			Console.WriteLine("Query Type: " + dbms.CurrentDML + " [OK]");
 			Console.WriteLine("Query: " + dbms.Query + " [OK]");
 
@@ -39,39 +38,43 @@ namespace MySQLManager_Tests {
 			}
 		}
 
-		static void ShowQueryResult (List<string>[] select, string tableName, string[] columns) {
+		static void ShowQueryResult (MySQLManager dbms) {
 			Console.WriteLine("Query Type: " + dbms.CurrentDML + " [OK]");
 			Console.WriteLine("Query: " + dbms.Query + " [OK]");
 
-			if (select != null) {
-				Console.WriteLine("Table Name: " + tableName + " [OK]");
+			if (dbms.SelectResult != null) {
+				string columnsJoint = "";
+				foreach (List<string> column in dbms.SelectResult)
+					columnsJoint += "| " + column[0] + " ";
+
+				columnsJoint += "|";
+
+				Console.WriteLine("Table Name: " + dbms.TableName + " [OK]");
 				Console.WriteLine("Num rows selected: " + dbms.NumRows + " [OK]");
 
-				Console.WriteLine("Select result:");
-				Console.WriteLine("| " + string.Join(" | ", columns) + " |");
-				for (int row = 0; row < dbms.NumRows; row++) {
+				Console.WriteLine("Select result:\n");
+				Console.WriteLine(columnsJoint);
+
+				for (int row = 1; row <= dbms.NumRows; row++) {
 					Console.Write("| ");
-					for (int column = 0; column < select.Length; column++)
-						Console.Write(select[column][row] + " | ");
+					for (int column = 0; column < dbms.SelectResult.Length; column++)
+						Console.Write(dbms.SelectResult[column][row] + " | ");
 
 					Console.Write("\n");
 				}
-				Console.WriteLine("Select completed [OK]\n");
+				Console.WriteLine("\nSelect completed [OK]\n");
 			} else {
 				if (dbms.Error.Number != -1)
 					Console.WriteLine("Error " + dbms.Error.Number + ": " + dbms.Error.Message + " [!]");
 
 				if (dbms.Error.MySqlExceptionNumber != -1)
 					Console.WriteLine("MySql error " + dbms.Error.MySqlExceptionNumber + ": " + dbms.Error.InnerException.Message + " [!]\n");
-				else
+				else if (dbms.Error.InnerException != null)
 					Console.WriteLine("Exception message: " + dbms.Error.InnerException.Message + " [!]\n");
 			}
 		}
 
-		static void Main (string[] args) {
-			Console.WriteLine("Starting [...]");
-
-			dbms = new MySQLManager("test", "Manager", "12345678"); //Connection
+		static void ShowConnectionStatus (MySQLManager dbms) {
 			Console.WriteLine("Connection String: " + dbms.ConnectionString + " [OK]");
 			Console.WriteLine("Connection Status: " + ((dbms.Connected) ? "CONNECTED [OK]\n" : "DISCONNECTED [!]\n"));
 			if (dbms.Error != null) {
@@ -86,43 +89,51 @@ namespace MySQLManager_Tests {
 				Console.ReadKey();
 				return;
 			}
+		}
+
+		static void Main (string[] args) {
+			MySQLManager dbms;
+			Console.WriteLine("Starting [...]");
+
+			dbms = new MySQLManager("test", "Manager", "12345678"); //Connection
+			ShowConnectionStatus(dbms);
 
 			string tableName = "teste";
 			string[] columns = new string[] { "string", "id" };
 			string[][] values = new string[][] { new string[] { "Hello" }, new string[] { "World" } };
 
 			dbms.InsertInto(tableName, columns, values);
-			ShowNonQueryResult();
+			ShowNonQueryResult(dbms);
 
-			List<string>[] select = dbms.Select("SELECT COUNT(*) FROM teste", 1);
-			ShowQueryResult(select, tableName, new string[] { "COUNT(*)" });
+			dbms.Select("SELECT COUNT(*) FROM `teste`");
+			ShowQueryResult(dbms);
 
 			dbms.DeleteFrom("DELETE FROM teste;");
-			ShowNonQueryResult();
+			ShowNonQueryResult(dbms);
 
 			dbms.InsertInto("INSERT INTO teste(id) VALUES (75), (76), (77), (78), (79), (80);");
-			ShowNonQueryResult();
+			ShowNonQueryResult(dbms);
 
 			dbms.Update("UPDATE teste SET id = 73 WHERE id = 77;");
-			ShowNonQueryResult();
+			ShowNonQueryResult(dbms);
 
 			dbms.Update(tableName, new string[] { "string" }, new string[] { "TEST" }, "id = 73");
-			ShowNonQueryResult();
+			ShowNonQueryResult(dbms);
 
-			select = dbms.Select(tableName, new string[] { "string" }, "id < 77", "ORDER BY id DESC");
-			ShowQueryResult(select, tableName, new string[] { "string" });
+			dbms.Select(tableName, new string[] { "string" }, "id < 77", "ORDER BY id DESC");
+			ShowQueryResult(dbms);
 
-			dbms.InsertInto(tableName, new string[] { "string" }, MySQLManager.SelectToInsertValues(select));
-			ShowNonQueryResult();
+			dbms.InsertInto(tableName, new string[] { "string" }, MySQLManager.SelectToInsertValues(dbms.SelectResult));
+			ShowNonQueryResult(dbms);
 
-			select = dbms.Select("SELECT id AS Um, string FROM teste ORDER BY id DESC LIMIT 0, 1", 2);
-			ShowQueryResult(select, tableName, new string[] { "Um", "String" });
+			dbms.Select("SELECT `id` AS 'Num', `string` FROM `teste` ORDER BY id DESC LIMIT 0, 1");
+			ShowQueryResult(dbms);
 
-			dbms.DeleteFrom(tableName, "id = " + select[0][0]);
-			ShowNonQueryResult();
+			dbms.DeleteFrom(tableName, "id = " + dbms.SelectResult[0][1]); //[First Column][First Register]
+			ShowNonQueryResult(dbms);
 
-			select = dbms.Select("SELECT COUNT(*) FROM teste", 1);
-			ShowQueryResult(select, tableName, new string[] { "COUNT(*)" });
+			dbms.Select("SELECT COUNT(*) FROM teste");
+			ShowQueryResult(dbms);
 
 			Console.WriteLine("Finished [OK]");
 			Console.ReadKey();

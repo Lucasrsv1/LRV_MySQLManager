@@ -28,13 +28,15 @@ namespace DBMS {
 		public MySQLManager () {
 			Error = null;
 			Connection = null;
+			SelectResult = null;
 			NumRows = AffectedRows = 0;
-			ConnectionString = Password = User = Database = Server = Query = "";
+			ConnectionString = Password = User = Database = Server = Query = TableName ="";
 		}
 
 		public MySQLManager (string database, string user = "root", string password = "", string server = "localhost") {
-			Query = "";
+			TableName = Query = "";
 			NumRows = AffectedRows = 0;
+			SelectResult = null;
 			Connect(database, user, password, server);
 		}
 
@@ -240,6 +242,8 @@ namespace DBMS {
 		public string Database { get; private set; }
 		public string ConnectionString { get; private set; }
 
+		public string TableName { get; private set; }
+		public List<string>[] SelectResult { get; private set; }
 		public MySqlConnection Connection { get; private set; }
 		public MySQLManagerException Error { get; private set; }
 
@@ -365,7 +369,7 @@ namespace DBMS {
 		}
 
 		//Data Manipulation Language:
-		public int DeleteFrom (string tableName, string condition) {
+		public int DeleteFrom (string tableName, string condition = "") {
 			AffectedRows = -1;
 
 			string query = "";
@@ -414,7 +418,10 @@ namespace DBMS {
 		}
 
 		public List<string>[] Select (string tableName, string[] columns, string condition = "", string complement = "", string inner = "") {
-			string query = "";
+			string query = TableName = "";
+			SelectResult = null;
+			NumRows = 0;
+
 			try {
 				query = CreateSelectQuery(tableName, columns, condition, complement, inner);
 			} catch (MySQLManagerException error) {
@@ -422,22 +429,19 @@ namespace DBMS {
 				return null;
 			}
 
-			return Select(query, columns);
+			return Select(query);
 		}
 
-		public List<string>[] Select (string query, int numColumns) {
-			return Select(query, new string[numColumns]);
-		}
-
-		public List<string>[] Select (string query, string[] columns) {
+		public List<string>[] Select (string query) {
+			NumRows = 0;
+			TableName = "";
+			SelectResult = null;
 			CurrentDML = DML.SELECT;
 			if (!ValidateQuery(query))
 				return null;
 
 			bool close = false;
-			List<string>[] result = new List<string>[columns.Length];
-			for (int i = 0; i < result.Length; i++)
-				result[i] = new List<string>();
+			List<string>[] result = null;
 
 			if (!Connected) {
 				if (!OpenConnection()) {
@@ -449,23 +453,21 @@ namespace DBMS {
 
 			try {
 				MySqlCommand command = new MySqlCommand(Query, Connection);
-				MySqlDataReader reader = command.ExecuteReader();
-
-				NumRows = 0;
+				MySqlDataReader reader = command.ExecuteReader(CommandBehavior.KeyInfo);
+				
 				while (reader.Read()) {
+					if (NumRows == 0) {
+						result = new List<string>[reader.FieldCount];
+						for (int i = 0; i < result.Length; i++)
+							(result[i] = new List<string>()).Add(reader.GetName(i));
+					}
+
 					NumRows++;
-					for (int i = 0; i < columns.Length; i++) {
-						if (columns[i] != null) {
-							if (reader[columns[i]] == DBNull.Value)
-								result[i].Add(NULL);
-							else
-								result[i].Add(reader[columns[i]].ToString());
-						} else {
-							if (reader[i] == DBNull.Value)
-								result[i].Add(NULL);
-							else
-								result[i].Add(reader[i].ToString());
-						}
+					for (int i = 0; i < reader.FieldCount; i++) {
+						if (reader[i] == DBNull.Value)
+							result[i].Add(NULL);
+						else
+							result[i].Add(reader[i].ToString());
 					}
 				}
 
@@ -481,6 +483,16 @@ namespace DBMS {
 			if (close)
 				CloseConnection();
 
+			if (result != null) {
+				string tableName = query.Replace("`", " ");
+				tableName = tableName.Substring(tableName.ToUpper().IndexOf("FROM ") + 5).Trim();
+				if (tableName.IndexOf(" ") != -1)
+					tableName = tableName.Substring(0, tableName.IndexOf(" "));
+
+				TableName = tableName;
+			}
+
+			SelectResult = result;
 			return result;
 		}
 
