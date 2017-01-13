@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 
-namespace DBMS {
+namespace LRV_Utilities.DBMS {
 	public enum DML { DELETE, INSERT_INTO, SELECT, UPDATE }
 
 	[Serializable()]
@@ -46,7 +46,7 @@ namespace DBMS {
 			return "SERVER=" + server + ";" + "DATABASE=" + database + ";" + "UID=" + user + ";" + "PASSWORD=" + password + ";";
 		}
 
-		public static string CreateInsertIntoQuery (string tableName, string[] columns, string[][] values) {
+		public static string CreateInsertIntoQuery (string tableName, string[] columns, string[][] values, int index = 0) {
 			if (tableName == null) {
 				Exception error = new ArgumentNullException("tableName");
 				throw new MySQLManagerException("tableName cannot be null.", error, 2);
@@ -73,10 +73,15 @@ namespace DBMS {
 				throw new MySQLManagerException("Cannot insert into table with no values to insert.", 8);
 			}
 
+			if (index < 0)
+				index = 0;
+			else if (index >= values.Length)
+				index = values.Length - 1;
+
 			string valuesJoint = "";
 			string columnsJoint = string.Join(", ", columns);
 
-			for (int i = 0; i < values.Length; i++) {
+			for (int i = index; i < values.Length; i++) {
 				if (values[i].Length > 0)
 					valuesJoint += "('" + string.Join("', '", values[i]) + "'";
 				else
@@ -186,32 +191,6 @@ namespace DBMS {
 			return ("SELECT " + columnsJoint + " FROM " + tableName + " " + inner + "WHERE " + condition + " " + complement).Trim();
 		}
 
-		public static string[][] SelectToInsertValues (List<string>[] select) {
-			if (select == null) {
-				Exception error = new ArgumentNullException("select");
-				throw new MySQLManagerException("select cannot be null.", error, 11);
-			} else {
-				foreach (List<string> s in select) {
-					if (s == null) {
-						Exception error = new ArgumentNullException("select");
-						throw new MySQLManagerException("select cannot have null columns.", error, 12);
-					}
-				}
-			}
-
-			int numRows = select[0].Count;
-			string[][] selectValues = new string[numRows][];
-
-			for (int r = 0; r < numRows; r++) {
-				selectValues[r] = new string[select.Length];
-				for (int c = 0; c < select.Length; c++) {
-					selectValues[r][c] = select[c][r];
-				}
-			}
-
-			return selectValues;
-		}
-
 		private static string ClearCondition (string condition) {
 			if (condition == "" || condition == null)
 				condition = "TRUE";
@@ -243,7 +222,7 @@ namespace DBMS {
 		public string ConnectionString { get; private set; }
 
 		public string TableName { get; private set; }
-		public List<string>[] SelectResult { get; private set; }
+		public string[][] SelectResult { get; private set; }
 		public MySqlConnection Connection { get; private set; }
 		public MySQLManagerException Error { get; private set; }
 
@@ -260,6 +239,7 @@ namespace DBMS {
 		}
 
 		public bool OpenConnection () {
+			Error = null;
 			try {
 				if (Connection.State == ConnectionState.Broken)
 					Connection.Close();
@@ -267,7 +247,6 @@ namespace DBMS {
 				if (Connection.State != ConnectionState.Open)
 					Connection.Open();
 
-				Error = null;
 				return true;
 			} catch (MySqlException error) {
 				switch (error.Number) {
@@ -289,6 +268,7 @@ namespace DBMS {
 		}
 
 		public bool CloseConnection () {
+			Error = null;
 			try {
 				if (Connection.State != ConnectionState.Closed)
 					Connection.Close();
@@ -343,7 +323,36 @@ namespace DBMS {
 			return true;
 		}
 
+		private string[][] SelectToInsertValues (List<string>[] select) {
+			if (select == null) {
+				Exception error = new ArgumentNullException("select");
+				Error = new MySQLManagerException("select cannot be null.", error, 11);
+				return null;
+			} else {
+				foreach (List<string> s in select) {
+					if (s == null) {
+						Exception error = new ArgumentNullException("select");
+						Error = new MySQLManagerException("select cannot have null columns.", error, 12);
+						return null;
+					}
+				}
+			}
+
+			int numRows = select[0].Count;
+			string[][] selectValues = new string[numRows][];
+
+			for (int r = 0; r < numRows; r++) {
+				selectValues[r] = new string[select.Length];
+				for (int c = 0; c < select.Length; c++) {
+					selectValues[r][c] = select[c][r];
+				}
+			}
+
+			return selectValues;
+		}
+
 		private int ExecuteNonQuery () {
+			Error = null;
 			bool close = false;
 			if (!Connected) {
 				if (!OpenConnection()) {
@@ -393,12 +402,12 @@ namespace DBMS {
 			return ExecuteNonQuery();
 		}
 
-		public int InsertInto (string tableName, string[] columns, string[][] values) {
+		public int InsertInto (string tableName, string[] columns, string[][] values, int index = 0) {
 			AffectedRows = -1;
 
 			string query = "";
 			try {
-				query = CreateInsertIntoQuery(tableName, columns, values);
+				query = CreateInsertIntoQuery(tableName, columns, values, index);
 			} catch (MySQLManagerException error) {
 				Error = error;
 				return -1;
@@ -417,7 +426,7 @@ namespace DBMS {
 			return ExecuteNonQuery();
 		}
 
-		public List<string>[] Select (string tableName, string[] columns, string condition = "", string complement = "", string inner = "") {
+		public string[][] Select (string tableName, string[] columns, string condition = "", string complement = "", string inner = "") {
 			string query = TableName = "";
 			SelectResult = null;
 			NumRows = 0;
@@ -432,7 +441,8 @@ namespace DBMS {
 			return Select(query);
 		}
 
-		public List<string>[] Select (string query) {
+		public string[][] Select (string query) {
+			Error = null;
 			NumRows = 0;
 			TableName = "";
 			SelectResult = null;
@@ -490,10 +500,10 @@ namespace DBMS {
 					tableName = tableName.Substring(0, tableName.IndexOf(" "));
 
 				TableName = tableName;
+				SelectResult = SelectToInsertValues(result);
 			}
 
-			SelectResult = result;
-			return result;
+			return SelectResult;
 		}
 
 		public int Update (string tableName, string[] columns, string[] values, string condition = "") {

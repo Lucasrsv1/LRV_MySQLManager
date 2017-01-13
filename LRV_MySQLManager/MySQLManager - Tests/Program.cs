@@ -13,9 +13,8 @@
 ///		string VARCHAR(100) NULL
 /// );
 
-using DBMS;
+using LRV_Utilities.DBMS;
 using System;
-using System.Collections.Generic;
 
 namespace MySQLManager_Tests {
 	class Program {
@@ -44,21 +43,22 @@ namespace MySQLManager_Tests {
 
 			if (dbms.SelectResult != null) {
 				string columnsJoint = "";
-				foreach (List<string> column in dbms.SelectResult)
-					columnsJoint += "| " + column[0] + " ";
+				foreach (string column in dbms.SelectResult[0])
+					columnsJoint += "| " + column + " ";
 
 				columnsJoint += "|";
 
 				Console.WriteLine("Table Name: " + dbms.TableName + " [OK]");
 				Console.WriteLine("Num rows selected: " + dbms.NumRows + " [OK]");
+				Console.WriteLine("Num columns selected: " + dbms.SelectResult[0].Length + " [OK]");
 
 				Console.WriteLine("Select result:\n");
 				Console.WriteLine(columnsJoint);
 
 				for (int row = 1; row <= dbms.NumRows; row++) {
 					Console.Write("| ");
-					for (int column = 0; column < dbms.SelectResult.Length; column++)
-						Console.Write(dbms.SelectResult[column][row] + " | ");
+					for (int column = 0; column < dbms.SelectResult[0].Length; column++)
+						Console.Write(dbms.SelectResult[row][column] + " | ");
 
 					Console.Write("\n");
 				}
@@ -123,7 +123,7 @@ namespace MySQLManager_Tests {
 			dbms.Select(tableName, new string[] { "string" }, "id < 77", "ORDER BY id DESC");
 			ShowQueryResult(dbms);
 
-			dbms.InsertInto(tableName, new string[] { "string" }, MySQLManager.SelectToInsertValues(dbms.SelectResult));
+			dbms.InsertInto(tableName, new string[] { "string" }, dbms.SelectResult, 1);
 			ShowNonQueryResult(dbms);
 
 			dbms.Select("SELECT `id` AS 'Num', `string` FROM `teste` ORDER BY id DESC LIMIT 0, 1");
