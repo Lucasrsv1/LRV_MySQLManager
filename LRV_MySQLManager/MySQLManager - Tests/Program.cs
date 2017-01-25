@@ -95,7 +95,7 @@ namespace MySQLManager_Tests {
 			MySQLManager dbms;
 			Console.WriteLine("Starting [...]");
 
-			dbms = new MySQLManager("test", "Manager", "12345678"); //Connection
+			dbms = new MySQLManager("test", "Manager", "12345678"); // Connection
 			ShowConnectionStatus(dbms);
 
 			string tableName = "teste";
@@ -129,7 +129,7 @@ namespace MySQLManager_Tests {
 			dbms.Select("SELECT `id` AS 'Num', `string` FROM `teste` ORDER BY id DESC LIMIT 0, 1");
 			ShowQueryResult(dbms);
 
-			dbms.DeleteFrom(tableName, "id = " + dbms.SelectResult[0][1]); //[First Column][First Register]
+			dbms.DeleteFrom(tableName, "id = " + dbms.SelectResult[0][1]); // [First Column][First Register]
 			ShowNonQueryResult(dbms);
 
 			dbms.Select("SELECT COUNT(*) FROM teste");
