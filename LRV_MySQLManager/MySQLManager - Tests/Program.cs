@@ -1,4 +1,4 @@
-﻿/// CREATED BY LRV;
+﻿/// CREATED BY LUCAS RASSILAN VILANOVA;
 
 /// This software is for test the MySQLManager library;
 /// To use it, please create the next users in your DBMS or change the connection configuration below:
