@@ -517,26 +517,23 @@ namespace LRV_Utilities.DBMS {
 
 		private int ExecuteNonQuery () {
 			Error = null;
-			bool close = false;
-			if (!Connected) {
-				if (!OpenConnection()) {
-					return -1;
-				} else {
-					close = true;
+			AffectedRows = -1;
+			using (MySqlConnection localConnection = new MySqlConnection(ConnectionString)) {
+				try {
+					localConnection.Open();
+					MySqlCommand command = new MySqlCommand(Query, localConnection);
+					AffectedRows = command.ExecuteNonQuery();
+
+					command.Dispose();
+					localConnection.Close();
+				} catch (MySqlException error) {
+					Console.WriteLine("ME: " + error.Message);
+					Error = new MySQLManagerException(error.Message, error, -1, error.Number);
+				} catch (Exception error) {
+					Console.WriteLine("E: " + error.Message);
+					Error = new MySQLManagerException(error.Message, error, -1);
 				}
 			}
-
-			try {
-				MySqlCommand command = new MySqlCommand(Query, Connection);
-				AffectedRows = command.ExecuteNonQuery();
-			} catch (MySqlException error) {
-				Error = new MySQLManagerException(error.Message, error, -1, error.Number);
-			} catch (Exception error) {
-				Error = new MySQLManagerException(error.Message, error, -1);
-			}
-
-			if (close)
-				CloseConnection();
 
 			return AffectedRows;
 		}
@@ -646,6 +643,8 @@ namespace LRV_Utilities.DBMS {
 				}
 
 				reader.Close();
+				command.Dispose();
+				reader.Dispose();
 			} catch (MySqlException error) {
 				Error = new MySQLManagerException(error.Message, error, -1, error.Number);
 				result = null;
